@@ -1,78 +1,76 @@
-import {useEffect, useState} from 'react'
+import {BrowserRouter, Switch, Route} from 'react-router-dom'
+import {useState} from 'react'
+import CartContext from './context/CartContext'
+import Login from './components/Login'
+import Home from './components/Home'
+import Cart from './components/Cart'
+import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
-import Header from './components/Header'
-import CategoryTabs from './components/CategoryTabs'
-import DishItem from './components/DishItem'
 
-const API_URL =
-  'https://apis2.ccbp.in/restaurant-app/restaurant-menu-list-details'
+const App = () => {
+  const [cartList, setCartList] = useState([])
 
-function App() {
-  const [restaurantName, setRestaurantName] = useState('')
-  const [menuList, setMenuList] = useState([])
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [cartItems, setCartItems] = useState({})
+  const addCartItem = dish => {
+    const existingItem = cartList.find(item => item.dish_id === dish.dish_id)
 
-  useEffect(() => {
-    const fetchMenu = async () => {
-      const response = await fetch(API_URL)
-      const data = await response.json()
-
-      setRestaurantName(data[0].restaurant_name) // 🔥 IMPORTANT
-      setMenuList(data[0].table_menu_list)
+    if (existingItem) {
+      setCartList(prev =>
+        prev.map(item =>
+          item.dish_id === dish.dish_id
+            ? {...item, quantity: item.quantity + dish.quantity}
+            : item,
+        ),
+      )
+    } else {
+      setCartList(prev => [...prev, dish])
     }
-
-    fetchMenu()
-  }, [])
-
-  const increaseItem = id => {
-    setCartItems(prev => ({
-      ...prev,
-      [id]: (prev[id] || 0) + 1,
-    }))
   }
 
-  const decreaseItem = id => {
-    setCartItems(prev => {
-      if (!prev[id]) return prev
-      const updated = {...prev}
-      updated[id] -= 1
-      if (updated[id] === 0) delete updated[id]
-      return updated
-    })
+  const incrementCartItemQuantity = id => {
+    setCartList(prev =>
+      prev.map(item =>
+        item.dish_id === id ? {...item, quantity: item.quantity + 1} : item,
+      ),
+    )
   }
 
-  const totalCartCount = Object.values(cartItems).reduce(
-    (acc, val) => acc + val,
-    0,
-  )
+  const decrementCartItemQuantity = id => {
+    setCartList(prev =>
+      prev
+        .map(item =>
+          item.dish_id === id ? {...item, quantity: item.quantity - 1} : item,
+        )
+        .filter(item => item.quantity > 0),
+    )
+  }
 
-  if (menuList.length === 0) {
-    return <h2>Loading...</h2>
+  const removeCartItem = id => {
+    setCartList(prev => prev.filter(item => item.dish_id !== id))
+  }
+
+  const removeAllCartItems = () => {
+    setCartList([])
   }
 
   return (
-    <div>
-      <Header restaurantName={restaurantName} cartCount={totalCartCount} />
-
-      <CategoryTabs
-        categories={menuList}
-        activeIndex={activeIndex}
-        setActiveIndex={setActiveIndex}
-      />
-
-      <div className="dish-container">
-        {menuList[activeIndex].category_dishes.map(dish => (
-          <DishItem
-            key={dish.dish_id}
-            dish={dish}
-            count={cartItems[dish.dish_id] || 0}
-            increaseItem={increaseItem}
-            decreaseItem={decreaseItem}
-          />
-        ))}
-      </div>
-    </div>
+    <CartContext.Provider
+      value={{
+        cartList,
+        addCartItem,
+        removeCartItem,
+        removeAllCartItems,
+        incrementCartItemQuantity,
+        decrementCartItemQuantity,
+      }}
+    >
+      <BrowserRouter>
+        <Switch>
+          <Route exact path="/login" component={Login} />
+          <ProtectedRoute exact path="/" component={Home} />
+          <ProtectedRoute exact path="/cart" component={Cart} />
+        </Switch>
+      </BrowserRouter>
+    </CartContext.Provider>
   )
 }
 
